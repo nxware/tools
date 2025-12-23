@@ -4,10 +4,21 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Drag & Drop → JPG Download</title>
+  <link rel="stylesheet" href="tools.css" />
   <style>
     :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}
-    body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f3f4f6;margin:0;padding:24px}
-    .card{background:white;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.08);width:820px;max-width:100%;padding:20px}
+     body{
+      min-height:100vh;
+      background:#f3f4f6;
+      margin:0;
+      display: flex;
+      flex-direction: column;
+    }
+    .card{
+      align-items:center;justify-content:center;
+      margin: auto;
+      background:white;
+      border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.08);width:820px;max-width:80%;padding:20px}
     .drop{border:2px dashed #d1d5db;border-radius:8px;padding:28px;display:flex;gap:16px;align-items:center;justify-content:center;flex-direction:column;min-height:220px;transition:background .15s, border-color .15s}
     .drop.dragover{background:#eef2ff;border-color:#6366f1}
     .hint{color:#6b7280}
@@ -30,10 +41,17 @@
     body.dark .hint{color:#9ca3af;}    
     body.dark .small{color:#d1d5db;}    
     body.dark button{background:#6366f1;color:white;}    
-    body.dark input, body.dark select, body.dark number{background:#374151;color:#e5e7eb;border-color:#4b5563;}    
+    body.dark input, body.dark select, body.dark number{background:#374151;color:#e5e7eb;border-color:#4b5563;}   
   </style>
 </head>
 <body class="dark">
+  <nav class="navbar">
+    <div class="navbar-title">Toolbox</div>
+    <div class="navbar-links">
+      <a href="tools.html">Tools</a>
+    </div>
+  </nav>
+
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;"><h2>Bild per Drag &amp; Drop hochladen und als JPG herunterladen</h2>
       <label class="small" style="display:flex;align-items:center;gap:6px;cursor:pointer;">Dark&nbsp;Mode <input id="darkToggle" type="checkbox" checked></label></div>

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>Zufälliges Item</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
+  <link rel="stylesheet" href="tools.css" />
   <style>
     :root {
       --bg: #ffffff;
@@ -23,8 +23,6 @@
         --button-text: #ffffff;
       }
     }
-
-    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -90,43 +88,13 @@
       margin-top: 1rem;
     }
 
-
-    .navbar {
-      width: 100vw;
-      background-color: #343a40;
-      padding: 0 24px;
-      height: 50px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .navbar-title {
-      color: #ffffff;
-      font-size: 20px;
-      /*font-weight: bold;*/
-      text-decoration: none;
-    }
-    .navbar-links {
-      display: flex;
-      gap: 20px;
-    }
-    .navbar-links a {
-      color: #f8f9fa;
-      text-decoration: none;
-      font-size: 15px;
-      transition: color 0.2s ease;
-    }
-    .navbar-links a:hover {
-      color: #adb5bd;
-    }
-
   </style>
 </head>
 <body>
 
  <nav class="navbar">
     <!-- <a href="#" class="navbar-title"> -->
-          Mein Projekt
+          Tools
     <!-- </a> -->
     <div class="navbar-links">
       <a href="rand.html?json=names.json">Names DE</a>
