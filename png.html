@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PNG Metadaten - Drop Image</title>
+  <style>
+    :root{
+      --bg:#0f1720; --card:#0b1220; --text:#e6eef8; --muted:#9fb0c8; --accent:#4f46e5;
+    }
+    @media (prefers-color-scheme: light){
+      :root{ --bg:#f6f8fb; --card:#ffffff; --text:#0b1220; --muted:#4b5563; --accent:#1e40af; }
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial;background:var(--bg);color:var(--text);line-height:1.35}
+    .app{max-width:1400px;margin:32px auto;padding:20px}
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+    h1{font-size:18px;margin:0}
+    .controls{display:flex;gap:10px;align-items:center}
+    .btn{background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0));border:1px solid rgba(255,255,255,0.06);padding:8px 12px;border-radius:8px;color:var(--text);cursor:pointer}
+    .toggle{display:inline-flex;align-items:center;gap:8px}
+
+    .drop{border:2px dashed rgba(255,255,255,0.06);background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);padding:28px;border-radius:12px;text-align:center}
+    .drop.dragover{border-color:var(--accent);box-shadow:0 6px 24px rgba(0,0,0,0.35) inset}
+    .drop p{margin:6px 0;color:var(--muted)}
+    .layout{display:grid;grid-template-columns:360px 1fr;gap:18px;margin-top:18px}
+    .card{background:var(--card);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.03)}
+    .preview{width:100%;height:240px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px;background:linear-gradient(135deg, rgba(255,255,255,0.01), transparent)}
+    img.preview-img{max-width:100%;max-height:100%;display:block}
+    .meta-list{font-family:monospace;font-size:13px;color:var(--muted);margin:8px 0;white-space:pre-wrap}
+    table{width:100%;border-collapse:collapse;margin-top:8px}
+    th,td{padding:8px;text-align:left;border-bottom:1px dashed rgba(255,255,255,0.03);font-size:13px}
+    th{color:var(--muted);font-weight:600}
+    .actions{display:flex;gap:8px;margin-top:8px}
+    .small{padding:6px 8px;font-size:13px}
+    footer{margin-top:18px;color:var(--muted);font-size:13px}
+    @media (max-width:880px){.layout{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>PNG Metadaten — Drag & drop</h1>
+      <div class="controls">
+        <label class="toggle">
+          <input id="autoDark" type="checkbox" style="display:none" />
+          <button id="themeBtn" class="btn small">Toggle Dark/Light</button>
+        </label>
+        <input id="fileInput" type="file" accept="image/png" style="display:none" />
+        <button id="openBtn" class="btn small">Öffnen</button>
+      </div>
+    </header>
+
+    <div id="drop" class="drop card">
+      <strong>PNG-Datei hierher ziehen</strong>
+      <p>oder Datei auswählen. Unterstützt: Anzeige von IHDR, tEXt/iTXt, zTXt, pHYs, tIME, gAMA, PLTE und weiteren PNG-Chunks.</p>
+    </div>
+
+    <div class="layout">
+      <div>
+        <div class="card">
+          <div class="preview" id="previewArea">Vorschau erscheint hier</div>
+          <div class="actions">
+            <button id="copyJson" class="btn small">Kopiere Metadaten (JSON)</button>
+            <button id="downloadJson" class="btn small">Download JSON</button>
+          </div>
+          <div class="meta-list" id="summary">Keine Datei geladen.</div>
+        </div>
+        <footer>Erstellt — clientseitig. Keine Daten werden gesendet.</footer>
+      </div>
+
+      <div class="card" id="detailsCard">
+        <h3 style="margin-top:0">PNG Chunks & Details</h3>
+        <div id="chunksTableContainer">Ziehen Sie eine PNG-Datei in den Bereich links.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const drop = document.getElementById('drop');
+    const fileInput = document.getElementById('fileInput');
+    const openBtn = document.getElementById('openBtn');
+    const previewArea = document.getElementById('previewArea');
+    const summary = document.getElementById('summary');
+    const chunksTableContainer = document.getElementById('chunksTableContainer');
+    const copyJsonBtn = document.getElementById('copyJson');
+    const downloadJsonBtn = document.getElementById('downloadJson');
+    const themeBtn = document.getElementById('themeBtn');
+
+    openBtn.addEventListener('click', ()=> fileInput.click());
+    fileInput.addEventListener('change', e=>{ if(e.target.files.length) handleFile(e.target.files[0])});
+
+    ['dragenter','dragover'].forEach(ev=>{
+      drop.addEventListener(ev, ev2=>{ev2.preventDefault(); drop.classList.add('dragover')});
+    });
+    ['dragleave','drop'].forEach(ev=>{
+      drop.addEventListener(ev, ev2=>{ev2.preventDefault(); drop.classList.remove('dragover')});
+    });
+
+    drop.addEventListener('drop', ev=>{
+      const f = ev.dataTransfer.files && ev.dataTransfer.files[0];
+      if(f) handleFile(f);
+    });
+
+    themeBtn.addEventListener('click', ()=>{
+      const isLight = document.documentElement.style.getPropertyValue('--bg') === '#f6f8fb';
+      if(isLight){
+        document.documentElement.style.setProperty('--bg','#0f1720');
+        document.documentElement.style.setProperty('--card','#0b1220');
+        document.documentElement.style.setProperty('--text','#e6eef8');
+        document.documentElement.style.setProperty('--muted','#9fb0c8');
+        document.documentElement.style.setProperty('--accent','#4f46e5');
+      }else{
+        document.documentElement.style.setProperty('--bg','#f6f8fb');
+        document.documentElement.style.setProperty('--card','#ffffff');
+        document.documentElement.style.setProperty('--text','#0b1220');
+        document.documentElement.style.setProperty('--muted','#4b5563');
+        document.documentElement.style.setProperty('--accent','#1e40af');
+      }
+    });
+
+    copyJsonBtn.addEventListener('click', ()=>{
+      if(!lastMeta) return alert('Keine Metadaten verfügbar');
+      navigator.clipboard.writeText(JSON.stringify(lastMeta, null, 2)).then(()=>alert('Kopiert.'))
+    });
+    downloadJsonBtn.addEventListener('click', ()=>{
+      if(!lastMeta) return alert('Keine Metadaten verfügbar');
+      const blob = new Blob([JSON.stringify(lastMeta, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download='png-metadata.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    });
+
+    let lastMeta = null;
+
+    async function handleFile(file){
+      if(!file.type || file.type !== 'image/png'){
+        if(!file.name.toLowerCase().endsWith('.png')) return alert('Bitte eine PNG-Datei auswählen.');
+      }
+      const buffer = await file.arrayBuffer();
+      try{
+        const meta = parsePNG(new Uint8Array(buffer));
+        meta.filename = file.name;
+        lastMeta = meta;
+        renderMeta(meta, buffer);
+      }catch(err){
+        alert('Fehler beim Parsen: '+err.message);
+        console.error(err);
+      }
+    }
+
+    function renderMeta(meta, buffer){
+      // preview
+      const blob = new Blob([buffer], {type:'image/png'});
+      const url = URL.createObjectURL(blob);
+      previewArea.innerHTML = '';
+      const img = document.createElement('img'); img.className='preview-img'; img.src = url; previewArea.appendChild(img);
+
+      // summary
+      summary.textContent = `Datei: ${meta.filename}\nBreite: ${meta.IHDR.width} px\nHöhe: ${meta.IHDR.height} px\nBitTiefe: ${meta.IHDR.bitDepth}\nFarbtyp: ${meta.IHDR.colorType}\nChunks: ${meta.chunks.length}`;
+
+      // chunks table
+      const table = document.createElement('table');
+      const thead = document.createElement('thead'); thead.innerHTML = '<tr><th>Offset</th><th>Type</th><th>Length</th><th>Info</th></tr>'; table.appendChild(thead);
+      const tbody = document.createElement('tbody');
+      meta.chunks.forEach(c=>{
+        if (c.type != 'IDAT') {
+          const tr = document.createElement('tr');
+          const info = summarizeChunk(c);
+          tr.innerHTML = `<td>${c.offset}</td><td>${c.type}</td><td>${c.length}</td><td><div style="font-family:monospace">${info}</div></td>`;
+          tbody.appendChild(tr);
+        }
+      });
+      table.appendChild(tbody);
+      chunksTableContainer.innerHTML = ''; chunksTableContainer.appendChild(table);
+    }
+
+    function summarizeChunk(c){
+      try{
+        if(c.type==='IHDR') return `W:${c.width} H:${c.height} Bit:${c.bitDepth} Type:${c.colorType} Comp:${c.compression} Filter:${c.filter} Interlace:${c.interlace}`;
+        if(c.type==='tEXt') return `${c.keyword}: ${c.text}`;
+        if(c.type==='iTXt') return `${c.keyword} (iTXt): ${c.text}`;
+        if(c.type==='zTXt') return `${c.keyword} (zTXt; compressed)`;
+        if(c.type==='pHYs') return `Pixel per unit: ${c.ppux} x ${c.ppuy} (unit: ${c.unit})`;
+        if(c.type==='tIME') return `Last modification: ${c.year}-${c.month}-${c.day} ${c.hour}:${c.minute}:${c.second}`;
+        if(c.type==='gAMA') return `Gamma: ${c.gamma}`;
+        if(c.type==='PLTE') return `Palette entries: ${c.length/3}`;
+        return `raw ${c.length} bytes`;
+      }catch(e){ return '---' }
+    }
+
+
+    // PNG parsing - reads chunks and extracts common metadata
+    function parsePNG(bytes){
+      // validate signature
+      const PNG_SIG = [137,80,78,71,13,10,26,10];
+      for(let i=0;i<8;i++) if(bytes[i]!==PNG_SIG[i]) throw new Error('Keine gültige PNG-Signatur');
+      let offset = 8;
+      const chunks = [];
+      const meta={chunks:[], IHDR:null};
+      while(offset < bytes.length){
+        if(offset + 8 > bytes.length) break;
+        const length = readUint32(bytes, offset); offset +=4;
+        const type = readAscii(bytes, offset,4); offset+=4;
+        const data = bytes.slice(offset, offset+length);
+        offset += length;
+        const crc = readUint32(bytes, offset); offset+=4;
+        const c = {offset: offset - (8 + length), length, type, data, crc};
+        // decode known chunk types
+        if(type==='IHDR'){
+          c.width = readUint32(data,0);
+          c.height = readUint32(data,4);
+          c.bitDepth = data[8];
+          c.colorType = data[9];
+          c.compression = data[10];
+          c.filter = data[11];
+          c.interlace = data[12];
+          meta.IHDR = {width:c.width,height:c.height,bitDepth:c.bitDepth,colorType:c.colorType,compression:c.compression,filter:c.filter,interlace:c.interlace};
+        }else if(type==='tEXt'){
+          const txt = readAscii(data,0,data.length);
+          const sep = txt.indexOf('\u0000');
+          if(sep>=0){ c.keyword = txt.slice(0,sep); c.text = txt.slice(sep+1);} else { const parts = txt.split(':'); c.keyword = parts.shift(); c.text = parts.join(':'); }
+        }else if(type==='iTXt'){
+          // iTXt: keyword\0 compression_flag\0 compression_method\0 language_tag\0 translated_keyword\0 text
+          let p = 0;
+          const keyword = readNullTerminated(data,p); p += keyword.length+1;
+          const compFlag = data[p]; p+=1;
+          const compMethod = data[p]; p+=1;
+          const langTag = readNullTerminated(data,p); p+= langTag.length+1;
+          const transKey = readNullTerminated(data,p); p+= transKey.length+1;
+          let textBytes = data.slice(p);
+          let text = readAscii(textBytes,0,textBytes.length);
+          c.keyword = keyword; c.compressionFlag = compFlag; c.compressionMethod=compMethod; c.languageTag=langTag; c.translatedKey=transKey; c.text = text;
+        }else if(type==='zTXt'){
+          const keyword = readNullTerminated(data,0); let p = keyword.length+1; const compMethod = data[p]; p+=1; c.keyword = keyword; c.compMethod = compMethod; c.zdata = data.slice(p);
+        }else if(type==='pHYs'){
+          c.ppux = readUint32(data,0) / 1; // actually 4 bytes - but PNG pHYs uses 4? spec: 4 bytes ppux, 4 bytes ppuy - earlier versions 4? Some implementations use 4.
+          c.ppuy = readUint32(data,4) / 1;
+          c.unit = data[8];
+        }else if(type==='tIME'){
+          c.year = (data[0]<<8) + data[1]; c.month = data[2]; c.day = data[3]; c.hour = data[4]; c.minute = data[5]; c.second = data[6];
+        }else if(type==='gAMA'){
+          const val = readUint32(data,0); c.gamma = val / 100000;
+        }else if(type==='PLTE'){
+          c.palette = []; for(let i=0;i<data.length;i+=3) c.palette.push({r:data[i],g:data[i+1],b:data[i+2]});
+        }
+        meta.chunks.push(c);
+        // stop on IEND
+        if(type==='IEND') break;
+      }
+      return meta;
+    }
+
+    // helpers
+    function readUint32(arr,off){ return (arr[off]<<24) + (arr[off+1]<<16) + (arr[off+2]<<8) + (arr[off+3]); }
+    function readAscii(arr, off, len){ if(len==null) len = arr.length - off; let s=''; for(let i=0;i<len;i++){ s+=String.fromCharCode(arr[off+i]); } return s; }
+    function readNullTerminated(arr, off){ let s=''; for(let i=off;i<arr.length;i++){ const v = arr[i]; if(v===0) break; s+=String.fromCharCode(v);} return s; }
+
+  </script>
+</body>
+</html>
