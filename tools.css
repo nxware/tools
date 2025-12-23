@@ -19,12 +19,12 @@
       display: flex;
       gap: 20px;
     }
-    .navbar-links a {
+    .navbar a {
       color: #f8f9fa;
       text-decoration: none;
       font-size: 15px;
       transition: color 0.2s ease;
     }
-    .navbar-links a:hover {
+    .navbar a:hover {
       color: #adb5bd;
     }
