@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Cut</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="tools.css" />
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #000000;
+      --muted: #666666;
+      --card: #f2f2f2;
+      --card2: #e6e6e6;
+      --border: #cccccc;
+      --button: #dddddd;
+      --button-text: #000000;
+      --active: #2f6fdb;
+      --active-text: #ffffff;
+      --canvas: #d8d8d8;
+      --input: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #121212;
+        --text: #eaeaea;
+        --muted: #9a9a9a;
+        --card: #1e1e1e;
+        --card2: #2a2a2a;
+        --border: #3a3a3a;
+        --button: #333333;
+        --button-text: #ffffff;
+        --active: #3d7df0;
+        --active-text: #ffffff;
+        --canvas: #0a0a0a;
+        --input: #161616;
+      }
+    }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      font-family: system-ui, sans-serif;
+      font-size: 14px;
+      background-color: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+    }
+    .navbar-title a { color: #f8f9fa; text-decoration: none; }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px 12px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+    }
+    .toolbar .sep { width: 1px; height: 26px; background: var(--border); margin: 0 4px; }
+    button {
+      padding: 6px 10px;
+      font-size: 13px;
+      border: none;
+      border-radius: 6px;
+      background-color: var(--button);
+      color: var(--button-text);
+      cursor: pointer;
+      font-family: inherit;
+    }
+    button:hover { filter: brightness(1.08); }
+    button.active { background: var(--active); color: var(--active-text); }
+    button kbd { opacity: .55; font-size: 11px; margin-left: 4px; font-family: inherit; }
+
+    .work { flex: 1; display: flex; min-height: 0; }
+    .stage {
+      flex: 1;
+      position: relative;
+      background: var(--canvas);
+      min-width: 0;
+    }
+    .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    .stage.drop::after {
+      content: "Bild hier ablegen";
+      position: absolute; inset: 12px;
+      border: 3px dashed var(--active);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; color: var(--active);
+      background: rgba(47,111,219,.08);
+      pointer-events: none;
+    }
+    .hint {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+      text-align: center; color: var(--muted); pointer-events: none; line-height: 1.6;
+    }
+    .status {
+      position: absolute; left: 8px; bottom: 6px;
+      font-size: 12px; color: var(--muted);
+      background: var(--card); padding: 2px 8px; border-radius: 6px; opacity: .9;
+      pointer-events: none;
+    }
+
+    .side {
+      width: 340px;
+      border-left: 1px solid var(--border);
+      background: var(--card);
+      overflow-y: auto;
+      padding: 10px 12px 20px;
+    }
+    .side h3 { margin: 14px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+    .side h3:first-child { margin-top: 0; }
+    .grid { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 8px; align-items: center; }
+    input, select, textarea {
+      font: inherit; font-size: 13px;
+      background: var(--input); color: var(--text);
+      border: 1px solid var(--border); border-radius: 5px;
+      padding: 3px 6px; min-width: 0; width: 100%;
+    }
+    textarea { font-family: ui-monospace, Consolas, monospace; resize: vertical; }
+    .muted { color: var(--muted); font-size: 12px; }
+    .warn { color: #d9822b; font-size: 12px; }
+
+    .el {
+      background: var(--card2);
+      border: 2px solid transparent;
+      border-radius: 8px;
+      padding: 6px 8px;
+      margin-bottom: 6px;
+      cursor: pointer;
+    }
+    .el.sel { border-color: #f59e0b; }
+    .el .head { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; }
+    .el .head .type { font-size: 16px; width: 20px; text-align: center; }
+    .el .head input { flex: 1; }
+    .el .head select { width: auto; }
+    .el .head button { padding: 3px 7px; }
+    .el .fields { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; align-items: center; }
+    .el .fields label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+    dialog {
+      background: var(--card); color: var(--text);
+      border: 1px solid var(--border); border-radius: 10px;
+      width: min(800px, 92vw);
+      padding: 14px;
+    }
+    dialog textarea { height: 55vh; }
+    dialog .row { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
+    dialog::backdrop { background: rgba(0,0,0,.4); }
+
+    @media (max-width: 760px) {
+      .work { flex-direction: column; }
+      .side { width: auto; height: 40vh; border-left: none; border-top: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="navbar-title">
+      <a href="tools.html">Tools</a>
+      &raquo; Cut
+    </div>
+    <div class="navbar-links">
+      <a href="tools.html">Tools</a>
+    </div>
+  </nav>
+
+  <div class="toolbar" id="toolbar">
+    <button data-tool="select" title="Auswählen / Verschieben (S)">↖ Auswahl<kbd>S</kbd></button>
+    <span class="sep"></span>
+    <button data-tool="scaleH" title="Horizontalen Maßstab ziehen (H)">↔ MaßstabH<kbd>H</kbd></button>
+    <button data-tool="scaleV" title="Vertikalen Maßstab ziehen (V)">↕ MaßstabV<kbd>V</kbd></button>
+    <button data-tool="origin" title="Nullpunkt setzen (O)">⊕ Nullpunkt<kbd>O</kbd></button>
+    <button data-tool="measure" title="Messen (M) – Shift: 45°-Schritte">📏 Messen<kbd>M</kbd></button>
+    <span class="sep"></span>
+    <button data-tool="rect" title="Rechteck (R) – Shift: Quadrat">▭ Rechteck<kbd>R</kbd></button>
+    <button data-tool="circle" title="Kreis (C) – vom Mittelpunkt ziehen">◯ Kreis<kbd>C</kbd></button>
+    <button data-tool="ellipse" title="Ellipse (E) – Shift: Kreis">⬭ Ellipse<kbd>E</kbd></button>
+    <button data-tool="polygon" title="Polygon (P) – klicken, Doppelklick/Enter schließt">⬠ Polygon<kbd>P</kbd></button>
+    <span class="sep"></span>
+    <button id="btnOpen" title="Bild öffnen">🖼 Bild…</button>
+    <button id="btnFit" title="Einpassen (F)">⤢ Einpassen</button>
+    <button id="btnUndo" title="Rückgängig (Strg+Z)">↶</button>
+    <span class="sep"></span>
+    <button id="btnExport" title="OpenSCAD exportieren">⇩ OpenSCAD</button>
+    <button id="btnSave" title="Projekt als JSON speichern">💾</button>
+    <button id="btnLoad" title="Projekt laden">📂</button>
+    <input type="file" id="fileImg" accept="image/*" hidden>
+    <input type="file" id="fileProj" accept=".json,application/json" hidden>
+  </div>
+
+  <div class="work">
+    <div class="stage" id="stage">
+      <canvas id="cv"></canvas>
+      <div class="hint" id="hint">Bild hierher ziehen, einfügen (Strg+V)<br>oder über „🖼 Bild…“ öffnen</div>
+      <div class="status" id="status"></div>
+    </div>
+
+    <aside class="side">
+      <h3>Maßstab</h3>
+      <div class="grid">
+        <span>H</span><input type="number" id="scaleHcm" step="any" placeholder="cm"><span class="muted" id="scaleHinfo">–</span>
+        <span>V</span><input type="number" id="scaleVcm" step="any" placeholder="cm"><span class="muted" id="scaleVinfo">–</span>
+      </div>
+      <div class="muted" id="scaleNote" style="margin-top:4px"></div>
+
+      <h3>Export</h3>
+      <div class="grid">
+        <span>h</span><input type="text" id="hVal"><span class="muted" id="hUnit">mm</span>
+        <span>$fn</span><input type="number" id="fnVal" min="3" step="1"><span></span>
+        <span>Einheit</span>
+        <select id="unit"><option value="mm">mm</option><option value="cm">cm</option></select><span></span>
+      </div>
+
+      <h3>Elemente <span class="muted" id="elCount"></span></h3>
+      <div id="list"></div>
+      <div class="muted" id="listEmpty">Noch keine Elemente.</div>
+    </aside>
+  </div>
+
+  <dialog id="dlg">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <strong>OpenSCAD</strong>
+      <span class="muted">Höhe über Variable <code>h</code></span>
+    </div>
+    <textarea id="code" spellcheck="false"></textarea>
+    <div class="row">
+      <button id="btnCopy">📋 Kopieren</button>
+      <button id="btnDownload">⇩ cut.scad</button>
+      <button id="btnClose">Schließen</button>
+    </div>
+  </dialog>
+
+<script>
+(() => {
+  // ---------- State ----------
+  const STORE = 'cut.project.v1';
+  const state = {
+    imgSrc: null,
+    elements: [],
+    scaleH: null,   // {x1,y1,x2,y2,cm}
+    scaleV: null,
+    origin: null,   // {x,y} in Bildpixeln
+    unit: 'mm',
+    h: '10',
+    fn: 96,
+    nextId: 1,
+  };
+  let img = null;
+  const view = { zoom: 1, px: 0, py: 0 };
+  let tool = 'select';
+  let selectedId = null;
+  let drag = null;
+  let polyDraft = null;
+  let measure = null;   // {x1,y1,x2,y2}
+  let mouseImg = null;
+  let spaceDown = false;
+  const undoStack = [];
+
+  const $ = id => document.getElementById(id);
+  const stage = $('stage'), cv = $('cv'), ctx = cv.getContext('2d');
+  const listEl = $('list');
+
+  const ICON = { rect: '▭', circle: '◯', ellipse: '⬭', polygon: '⬠' };
+  const TYPE_NAME = { rect: 'Rechteck', circle: 'Kreis', ellipse: 'Ellipse', polygon: 'Polygon' };
+
+  // ---------- Maßstab / Koordinaten ----------
+  function pxPerCmX() {
+    if (state.scaleH && state.scaleH.cm > 0) return Math.abs(state.scaleH.x2 - state.scaleH.x1) / state.scaleH.cm;
+    if (state.scaleV && state.scaleV.cm > 0) return Math.abs(state.scaleV.y2 - state.scaleV.y1) / state.scaleV.cm;
+    return null;
+  }
+  function pxPerCmY() {
+    if (state.scaleV && state.scaleV.cm > 0) return Math.abs(state.scaleV.y2 - state.scaleV.y1) / state.scaleV.cm;
+    return pxPerCmX();
+  }
+  const sx = () => pxPerCmX() || 1;
+  const sy = () => pxPerCmY() || 1;
+  function origin() {
+    if (state.origin) return state.origin;
+    return { x: 0, y: img ? img.height : 0 };
+  }
+  // px -> cm
+  const conv = {
+    x:   v => (v - origin().x) / sx(),
+    y:   v => (origin().y - v) / sy(),
+    lx:  v => v / sx(),
+    ly:  v => v / sy(),
+    deg: v => v,
+  };
+  // cm -> px
+  const inv = {
+    x:   v => v * sx() + origin().x,
+    y:   v => origin().y - v * sy(),
+    lx:  v => v * sx(),
+    ly:  v => v * sy(),
+    deg: v => v,
+  };
+  const fmt = (v, d = 3) => String(+(+v).toFixed(d));
+  function measureInfo(l) {
+    const dx = (l.x2 - l.x1) / sx(), dy = (l.y1 - l.y2) / sy();
+    return { len: Math.hypot(dx, dy), dx, dy, ang: Math.atan2(dy, dx) * 180 / Math.PI };
+  }
+
+  // ---------- Undo ----------
+  function snapshot() {
+    return JSON.stringify({ elements: state.elements, scaleH: state.scaleH, scaleV: state.scaleV, origin: state.origin });
+  }
+  function pushUndo() {
+    undoStack.push(snapshot());
+    if (undoStack.length > 100) undoStack.shift();
+  }
+  function undo() {
+    if (!undoStack.length) return;
+    const s = JSON.parse(undoStack.pop());
+    Object.assign(state, s);
+    if (!state.elements.find(e => e.id === selectedId)) selectedId = null;
+    polyDraft = null;
+    changed(true);
+  }
+
+  // ---------- Persistenz ----------
+  let saveTimer = null;
+  function persist() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      try { localStorage.setItem(STORE, JSON.stringify(state)); }
+      catch (e) {
+        try { localStorage.setItem(STORE, JSON.stringify({ ...state, imgSrc: null })); } catch (e2) {}
+      }
+    }, 300);
+  }
+  function loadProject(obj, fit = true) {
+    Object.assign(state, {
+      imgSrc: null, elements: [], scaleH: null, scaleV: null, origin: null,
+      unit: 'mm', h: '10', fn: 96, nextId: 1
+    }, obj);
+    state.nextId = Math.max(state.nextId, ...state.elements.map(e => e.id + 1), 1);
+    selectedId = null; polyDraft = null;
+    syncGlobals();
+    if (state.imgSrc) setImage(state.imgSrc, fit, false);
+    else { img = null; changed(true); }
+  }
+
+  // ---------- Bild ----------
+  function setImage(src, fit = true, store = true) {
+    const im = new Image();
+    im.onload = () => {
+      img = im;
+      if (store) state.imgSrc = src;
+      $('hint').style.display = 'none';
+      if (fit) fitView();
+      changed(true);
+    };
+    im.src = src;
+  }
+  function loadFile(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    const r = new FileReader();
+    r.onload = () => {
+      if (img && state.elements.length && !confirm('Bild ersetzen? Elemente und Maßstab bleiben erhalten.')) return;
+      setImage(r.result);
+    };
+    r.readAsDataURL(file);
+  }
+
+  // ---------- View ----------
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    const r = stage.getBoundingClientRect();
+    cv.width = Math.round(r.width * dpr);
+    cv.height = Math.round(r.height * dpr);
+    draw();
+  }
+  function fitView() {
+    if (!img) return;
+    const r = stage.getBoundingClientRect();
+    const z = Math.min((r.width - 40) / img.width, (r.height - 40) / img.height);
+    view.zoom = z > 0 ? z : 1;
+    view.px = (r.width - img.width * view.zoom) / 2;
+    view.py = (r.height - img.height * view.zoom) / 2;
+    draw();
+  }
+  function toImg(e) {
+    const r = cv.getBoundingClientRect();
+    return { x: (e.clientX - r.left - view.px) / view.zoom, y: (e.clientY - r.top - view.py) / view.zoom };
+  }
+  const toScr = p => ({ x: p.x * view.zoom + view.px, y: p.y * view.zoom + view.py });
+
+  // ---------- Geometrie ----------
+  function toLocal(el, p) {
+    const a = -(el.a || 0) * Math.PI / 180;
+    const dx = p.x - el.cx, dy = p.y - el.cy;
+    return { x: dx * Math.cos(a) - dy * Math.sin(a), y: dx * Math.sin(a) + dy * Math.cos(a) };
+  }
+  function fromLocal(el, l) {
+    const a = (el.a || 0) * Math.PI / 180;
+    return { x: el.cx + l.x * Math.cos(a) - l.y * Math.sin(a), y: el.cy + l.x * Math.sin(a) + l.y * Math.cos(a) };
+  }
+  function pointInPoly(p, pts) {
+    let inside = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const a = pts[i], b = pts[j];
+      if ((a.y > p.y) !== (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+    }
+    return inside;
+  }
+  function distSeg(p, a, b) {
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const l2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2));
+    return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
+  }
+  function hit(el, p) {
+    const tol = 4 / view.zoom;
+    switch (el.type) {
+      case 'rect': { const l = toLocal(el, p); return Math.abs(l.x) <= el.w / 2 + tol && Math.abs(l.y) <= el.d / 2 + tol; }
+      case 'circle': return Math.hypot(p.x - el.cx, p.y - el.cy) <= el.r + tol;
+      case 'ellipse': { const l = toLocal(el, p); return (l.x / (el.rx + tol)) ** 2 + (l.y / (el.ry + tol)) ** 2 <= 1; }
+      case 'polygon': return pointInPoly(p, el.pts);
+    }
+  }
+  function handles(el) {
+    switch (el.type) {
+      case 'rect': return [fromLocal(el, { x: el.w / 2, y: el.d / 2 })];
+      case 'ellipse': return [fromLocal(el, { x: el.rx, y: el.ry })];
+      case 'circle': return [{ x: el.cx + el.r, y: el.cy }];
+      case 'polygon': return el.pts;
+    }
+    return [];
+  }
+  function moveEl(el, orig, dx, dy) {
+    if (el.type === 'polygon') el.pts = orig.pts.map(q => ({ x: q.x + dx, y: q.y + dy }));
+    else { el.cx = orig.cx + dx; el.cy = orig.cy + dy; }
+  }
+
+  // ---------- Zeichnen ----------
+  function draw() {
+    const dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.setTransform(dpr * view.zoom, 0, 0, dpr * view.zoom, dpr * view.px, dpr * view.py);
+    const lw = 1 / view.zoom;
+
+    if (img) {
+      ctx.imageSmoothingEnabled = view.zoom < 3;
+      ctx.drawImage(img, 0, 0);
+    }
+
+    // Elemente
+    for (const el of state.elements) {
+      const sel = el.id === selectedId;
+      const sub = el.op === 'sub';
+      ctx.beginPath();
+      shapePath(el);
+      ctx.fillStyle = sub ? 'rgba(220,40,40,.22)' : 'rgba(40,110,230,.22)';
+      ctx.fill();
+      ctx.lineWidth = (sel ? 2.5 : 1.5) * lw;
+      ctx.strokeStyle = sel ? '#f59e0b' : (sub ? '#dc2828' : '#2a6ee6');
+      if (sub) ctx.setLineDash([6 * lw, 4 * lw]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Polygon-Entwurf
+    if (polyDraft && polyDraft.length) {
+      ctx.beginPath();
+      ctx.moveTo(polyDraft[0].x, polyDraft[0].y);
+      for (const q of polyDraft) ctx.lineTo(q.x, q.y);
+      if (mouseImg) ctx.lineTo(mouseImg.x, mouseImg.y);
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 1.5 * lw;
+      ctx.setLineDash([5 * lw, 4 * lw]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Ab hier Bildschirmkoordinaten
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // Handles
+    const selEl = state.elements.find(e => e.id === selectedId);
+    if (selEl && tool === 'select') {
+      for (const h of handles(selEl)) box(toScr(h), '#f59e0b');
+    }
+    if (polyDraft) polyDraft.forEach((q, i) => box(toScr(q), i === 0 ? '#22c55e' : '#f59e0b'));
+
+    // Namen
+    ctx.font = '12px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const el of state.elements) {
+      const c = toScr(center(el));
+      label(el.name, c.x, c.y);
+    }
+
+    // Maßstäbe
+    if (state.scaleH) dimLine(state.scaleH, '#16a34a');
+    if (state.scaleV) dimLine(state.scaleV, '#9333ea');
+    if (drag && drag.type === 'scale') dimLine(drag.line, '#f59e0b');
+    if (measure) drawMeasure(measure);
+
+    // Nullpunkt
+    if (img || state.origin) {
+      const o = toScr(origin());
+      ctx.strokeStyle = '#e11d48';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(o.x, o.y); ctx.lineTo(o.x + 28, o.y);
+      ctx.moveTo(o.x, o.y); ctx.lineTo(o.x, o.y - 28);
+      ctx.stroke();
+      ctx.fillStyle = '#e11d48';
+      ctx.textAlign = 'left';
+      ctx.fillText('x', o.x + 31, o.y);
+      ctx.textAlign = 'center';
+      ctx.fillText('y', o.x, o.y - 36);
+      ctx.beginPath(); ctx.arc(o.x, o.y, 3, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  function shapePath(el) {
+    switch (el.type) {
+      case 'rect': {
+        const c = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => fromLocal(el, { x: a * el.w / 2, y: b * el.d / 2 }));
+        ctx.moveTo(c[0].x, c[0].y); c.slice(1).forEach(q => ctx.lineTo(q.x, q.y)); ctx.closePath();
+        break;
+      }
+      case 'circle':
+        // bei ungleichem Maßstab H/V wird der Kreis im Bild zur Ellipse
+        ctx.ellipse(el.cx, el.cy, el.r, el.r * sy() / sx(), 0, 0, Math.PI * 2);
+        break;
+      case 'ellipse':
+        ctx.ellipse(el.cx, el.cy, Math.max(el.rx, 0.01), Math.max(el.ry, 0.01), (el.a || 0) * Math.PI / 180, 0, Math.PI * 2);
+        break;
+      case 'polygon':
+        ctx.moveTo(el.pts[0].x, el.pts[0].y); el.pts.slice(1).forEach(q => ctx.lineTo(q.x, q.y)); ctx.closePath();
+        break;
+    }
+  }
+  function center(el) {
+    if (el.type !== 'polygon') return { x: el.cx, y: el.cy };
+    const n = el.pts.length;
+    return { x: el.pts.reduce((s, q) => s + q.x, 0) / n, y: el.pts.reduce((s, q) => s + q.y, 0) / n };
+  }
+  function box(p, color) {
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(p.x - 4, p.y - 4, 8, 8);
+    ctx.strokeRect(p.x - 4, p.y - 4, 8, 8);
+  }
+  function label(text, x, y, color = '#fff') {
+    if (!text) return;
+    const w = ctx.measureText(text).width + 8;
+    ctx.fillStyle = 'rgba(0,0,0,.55)';
+    ctx.fillRect(x - w / 2, y - 9, w, 18);
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, y);
+  }
+  function drawMeasure(l) {
+    const a = toScr({ x: l.x1, y: l.y1 }), b = toScr({ x: l.x2, y: l.y2 });
+    const m = measureInfo(l), u = pxPerCmX() ? ' cm' : ' px';
+    ctx.strokeStyle = '#0ea5e9';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    ctx.setLineDash([]);
+    // Hilfslinien dx / dy
+    ctx.strokeStyle = 'rgba(14,165,233,.45)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    ctx.fillStyle = '#0ea5e9';
+    for (const p of [a, b]) { ctx.beginPath(); ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2); ctx.fill(); }
+    ctx.textAlign = 'center';
+    label(fmt(m.len, 2) + u, (a.x + b.x) / 2, (a.y + b.y) / 2 - 14, '#7dd3fc');
+    label(`Δx ${fmt(m.dx, 2)} · Δy ${fmt(m.dy, 2)} · ${fmt(m.ang, 1)}°`, (a.x + b.x) / 2, (a.y + b.y) / 2 + 8, '#bae6fd');
+  }
+  function dimLine(l, color) {
+    const a = toScr({ x: l.x1, y: l.y1 }), b = toScr({ x: l.x2, y: l.y2 });
+    const horiz = Math.abs(b.x - a.x) >= Math.abs(b.y - a.y);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+    for (const p of [a, b]) {
+      if (horiz) { ctx.moveTo(p.x, p.y - 8); ctx.lineTo(p.x, p.y + 8); }
+      else { ctx.moveTo(p.x - 8, p.y); ctx.lineTo(p.x + 8, p.y); }
+    }
+    ctx.stroke();
+    const txt = l.cm ? fmt(l.cm, 2) + ' cm' : '? cm';
+    ctx.textAlign = 'center';
+    label(txt, (a.x + b.x) / 2 + (horiz ? 0 : 30), (a.y + b.y) / 2 - (horiz ? 14 : 0), color === '#f59e0b' ? '#fde68a' : '#fff');
+  }
+
+  // ---------- Werkzeuge ----------
+  function setTool(t) {
+    if (polyDraft && t !== 'polygon') finishPoly();
+    tool = t;
+    document.querySelectorAll('#toolbar [data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === t));
+    cv.style.cursor = t === 'select' ? 'default' : 'crosshair';
+    status();
+    draw();
+  }
+  const TOOL_HINT = {
+    select: 'Klicken: auswählen · Ziehen: verschieben · Handle ziehen: Größe/Punkt · Doppelklick auf Polygonkante: Punkt einfügen · Alt+Klick auf Punkt: löschen · Entf: Element löschen',
+    scaleH: 'Horizontale Linie über eine bekannte Strecke ziehen, dann Länge in cm eingeben',
+    scaleV: 'Vertikale Linie über eine bekannte Strecke ziehen, dann Länge in cm eingeben',
+    origin: 'Klicken, um den Nullpunkt (0,0) für den Export zu setzen',
+    measure: 'Strecke ziehen zum Messen · Shift: 45°-Schritte · Esc: Messung entfernen',
+    rect: 'Rechteck aufziehen · Shift: Quadrat',
+    circle: 'Vom Mittelpunkt aus ziehen',
+    ellipse: 'Ellipse aufziehen · Shift: Kreisform',
+    polygon: 'Punkte klicken · Doppelklick, Enter oder Klick auf Startpunkt: schließen · Backspace: letzten Punkt entfernen · Esc: abbrechen',
+  };
+  function status() {
+    let s = TOOL_HINT[tool] || '';
+    if (mouseImg && (img || state.elements.length)) {
+      s = `x ${fmt(conv.x(mouseImg.x), 2)} · y ${fmt(conv.y(mouseImg.y), 2)} ${pxPerCmX() ? 'cm' : 'px'}  —  ` + s;
+    }
+    $('status').textContent = s;
+  }
+
+  function newElement(type, props) {
+    const n = state.elements.filter(e => e.type === type).length + 1;
+    const el = { id: state.nextId++, type, name: (TYPE_NAME[type] + n).toLowerCase(), op: 'add', height: 'h', a: 0, ...props };
+    state.elements.push(el);
+    return el;
+  }
+
+  function finishPoly() {
+    if (polyDraft && polyDraft.length >= 3) {
+      pushUndo();
+      const el = newElement('polygon', { pts: polyDraft });
+      selectedId = el.id;
+      polyDraft = null;
+      changed(true);
+      setTool('select');
+    } else {
+      polyDraft = null;
+      draw();
+    }
+  }
+
+  // ---------- Maus ----------
+  cv.addEventListener('contextmenu', e => e.preventDefault());
+  cv.addEventListener('mousedown', e => {
+    const p = toImg(e);
+    const sp = { x: e.clientX, y: e.clientY };
+    if (e.button === 1 || e.button === 2 || spaceDown) {
+      drag = { type: 'pan', sp, view: { ...view } };
+      cv.style.cursor = 'grabbing';
+      return;
+    }
+    if (e.button !== 0) return;
+
+    switch (tool) {
+      case 'select': {
+        const selEl = state.elements.find(x => x.id === selectedId);
+        if (selEl) {
+          const hs = handles(selEl);
+          const i = hs.findIndex(h => Math.hypot(toScr(h).x - e.offsetX, toScr(h).y - e.offsetY) <= 7);
+          if (i >= 0) {
+            pushUndo();
+            if (e.altKey && selEl.type === 'polygon') {
+              if (selEl.pts.length > 3) { selEl.pts.splice(i, 1); changed(true); }
+              return;
+            }
+            drag = { type: 'handle', el: selEl, idx: i };
+            return;
+          }
+        }
+        const target = [...state.elements].reverse().find(x => hit(x, p));
+        if (target) {
+          selectedId = target.id;
+          pushUndo();
+          drag = { type: 'move', el: target, p0: p, orig: JSON.parse(JSON.stringify(target)), moved: false };
+          renderList(); draw();
+          scrollToSel();
+        } else {
+          if (selectedId !== null) { selectedId = null; renderList(); }
+          drag = { type: 'pan', sp, view: { ...view } };
+          draw();
+        }
+        break;
+      }
+      case 'scaleH':
+      case 'scaleV':
+        drag = { type: 'scale', which: tool, line: { x1: p.x, y1: p.y, x2: p.x, y2: p.y, cm: 0 } };
+        break;
+      case 'measure':
+        measure = { x1: p.x, y1: p.y, x2: p.x, y2: p.y };
+        drag = { type: 'measure' };
+        draw();
+        break;
+      case 'origin':
+        pushUndo();
+        state.origin = { x: p.x, y: p.y };
+        changed(true);
+        break;
+      case 'rect':
+      case 'ellipse':
+      case 'circle': {
+        pushUndo();
+        const props = tool === 'rect' ? { cx: p.x, cy: p.y, w: 0, d: 0 }
+          : tool === 'ellipse' ? { cx: p.x, cy: p.y, rx: 0, ry: 0 }
+          : { cx: p.x, cy: p.y, r: 0 };
+        const el = newElement(tool, props);
+        selectedId = el.id;
+        drag = { type: 'create', el, p0: p };
+        break;
+      }
+      case 'polygon': {
+        if (!polyDraft) polyDraft = [];
+        if (polyDraft.length >= 3) {
+          const f = toScr(polyDraft[0]);
+          if (Math.hypot(f.x - e.offsetX, f.y - e.offsetY) <= 8) { finishPoly(); return; }
+        }
+        polyDraft.push(p);
+        draw();
+        break;
+      }
+    }
+  });
+
+  window.addEventListener('mousemove', e => {
+    const p = toImg(e);
+    if (e.target === cv || drag) { mouseImg = p; status(); }
+    if (!drag) { if (polyDraft) draw(); return; }
+
+    switch (drag.type) {
+      case 'pan':
+        view.px = drag.view.px + (e.clientX - drag.sp.x);
+        view.py = drag.view.py + (e.clientY - drag.sp.y);
+        break;
+      case 'move':
+        moveEl(drag.el, drag.orig, p.x - drag.p0.x, p.y - drag.p0.y);
+        drag.moved = true;
+        break;
+      case 'handle': {
+        const el = drag.el;
+        if (el.type === 'polygon') { el.pts[drag.idx] = { x: p.x, y: p.y }; break; }
+        if (el.type === 'circle') { el.r = Math.hypot(p.x - el.cx, p.y - el.cy); break; }
+        const l = toLocal(el, p);
+        if (el.type === 'rect') { el.w = Math.abs(l.x) * 2; el.d = Math.abs(l.y) * 2; }
+        else { el.rx = Math.abs(l.x); el.ry = Math.abs(l.y); }
+        break;
+      }
+      case 'create': {
+        const el = drag.el, p0 = drag.p0;
+        let dx = p.x - p0.x, dy = p.y - p0.y;
+        if (el.type === 'circle') { el.r = Math.hypot(dx, dy); break; }
+        if (e.shiftKey) {
+          // Quadrat/Kreis in cm (berücksichtigt unterschiedliche Maßstäbe)
+          const m = Math.max(Math.abs(dx) / sx(), Math.abs(dy) / sy());
+          dx = Math.sign(dx || 1) * m * sx(); dy = Math.sign(dy || 1) * m * sy();
+        }
+        el.cx = p0.x + dx / 2; el.cy = p0.y + dy / 2;
+        if (el.type === 'rect') { el.w = Math.abs(dx); el.d = Math.abs(dy); }
+        else { el.rx = Math.abs(dx) / 2; el.ry = Math.abs(dy) / 2; }
+        break;
+      }
+      case 'measure': {
+        let dx = p.x - measure.x1, dy = p.y - measure.y1;
+        if (e.shiftKey) {
+          const len = Math.hypot(dx, dy), a = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * Math.PI / 4;
+          dx = Math.cos(a) * len; dy = Math.sin(a) * len;
+        }
+        measure.x2 = measure.x1 + dx; measure.y2 = measure.y1 + dy;
+        break;
+      }
+      case 'scale': {
+        const l = drag.line;
+        if (drag.which === 'scaleH') { l.x2 = p.x; l.y2 = l.y1; }
+        else { l.x2 = l.x1; l.y2 = p.y; }
+        break;
+      }
+    }
+    if (drag.type !== 'pan' && drag.type !== 'measure') renderListLive();
+    draw();
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (!drag) return;
+    const d = drag;
+    drag = null;
+    cv.style.cursor = tool === 'select' ? 'default' : 'crosshair';
+    switch (d.type) {
+      case 'create': {
+        const el = d.el;
+        const tiny = (el.type === 'circle' ? el.r : el.type === 'rect' ? Math.min(el.w, el.d) : Math.min(el.rx, el.ry)) * view.zoom < 3;
+        if (tiny) {
+          state.elements = state.elements.filter(x => x !== el);
+          undoStack.pop();
+          selectedId = null;
+          state.nextId--;
+        }
+        changed(true);
+        if (!tiny) setTool('select');
+        break;
+      }
+      case 'move':
+        if (!d.moved) undoStack.pop();
+        changed(true);
+        break;
+      case 'handle':
+        changed(true);
+        break;
+      case 'measure':
+        if (Math.hypot(measure.x2 - measure.x1, measure.y2 - measure.y1) * view.zoom < 3) measure = null;
+        draw();
+        break;
+      case 'scale': {
+        const l = d.line;
+        const len = Math.hypot(l.x2 - l.x1, l.y2 - l.y1);
+        if (len * view.zoom < 5) { draw(); return; }
+        const key = d.which === 'scaleH' ? 'scaleH' : 'scaleV';
+        const prev = state[key] ? state[key].cm : '';
+        const input = prompt(`Länge der ${key === 'scaleH' ? 'horizontalen' : 'vertikalen'} Strecke in cm:`, prev || '');
+        const cm = parseFloat(String(input).replace(',', '.'));
+        if (input !== null && cm > 0) {
+          pushUndo();
+          l.cm = cm;
+          state[key] = l;
+          changed(true);
+        } else draw();
+        break;
+      }
+    }
+  });
+
+  cv.addEventListener('dblclick', e => {
+    if (tool === 'polygon' && polyDraft) {
+      // die beiden Klicks des Doppelklicks haben Punkte erzeugt -> Duplikate entfernen
+      while (polyDraft.length >= 2) {
+        const a = toScr(polyDraft[polyDraft.length - 1]), b = toScr(polyDraft[polyDraft.length - 2]);
+        if (Math.hypot(a.x - b.x, a.y - b.y) < 6) polyDraft.pop(); else break;
+      }
+      finishPoly();
+      return;
+    }
+    if (tool === 'select') {
+      const el = state.elements.find(x => x.id === selectedId);
+      if (el && el.type === 'polygon') {
+        const p = toImg(e);
+        const tol = 6 / view.zoom;
+        for (let i = 0; i < el.pts.length; i++) {
+          const a = el.pts[i], b = el.pts[(i + 1) % el.pts.length];
+          if (distSeg(p, a, b) <= tol) {
+            pushUndo();
+            el.pts.splice(i + 1, 0, { x: p.x, y: p.y });
+            changed(true);
+            return;
+          }
+        }
+      }
+    }
+  });
+
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    const f = Math.exp(-e.deltaY * 0.0015);
+    const z = Math.min(64, Math.max(0.02, view.zoom * f));
+    const mx = e.offsetX, my = e.offsetY;
+    view.px = mx - (mx - view.px) * (z / view.zoom);
+    view.py = my - (my - view.py) * (z / view.zoom);
+    view.zoom = z;
+    draw();
+  }, { passive: false });
+
+  cv.addEventListener('mouseleave', () => { mouseImg = null; status(); });
+
+  // ---------- Tastatur ----------
+  const KEYS = { s: 'select', h: 'scaleH', v: 'scaleV', o: 'origin', m: 'measure', r: 'rect', c: 'circle', e: 'ellipse', p: 'polygon' };
+  window.addEventListener('keydown', e => {
+    const inField = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !inField) { e.preventDefault(); undo(); return; }
+    if (inField || $('dlg').open) return;
+    if (e.code === 'Space') { spaceDown = true; cv.style.cursor = 'grab'; e.preventDefault(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicate(); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (KEYS[k]) { setTool(KEYS[k]); return; }
+    if (k === 'f') { fitView(); return; }
+    if (e.key === 'Enter' && polyDraft) { finishPoly(); return; }
+    if (e.key === 'Escape') {
+      if (polyDraft) { polyDraft = null; draw(); }
+      else if (measure) { measure = null; draw(); }
+      else if (selectedId !== null) { selectedId = null; changed(); }
+      return;
+    }
+    if (e.key === 'Backspace' && polyDraft) { polyDraft.pop(); if (!polyDraft.length) polyDraft = null; draw(); e.preventDefault(); return; }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId !== null) { removeEl(selectedId); e.preventDefault(); return; }
+    const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    if (arrows[e.key] && selectedId !== null) {
+      e.preventDefault();
+      const el = state.elements.find(x => x.id === selectedId);
+      const step = (e.shiftKey ? 10 : 1) / view.zoom;
+      pushUndo();
+      moveEl(el, JSON.parse(JSON.stringify(el)), arrows[e.key][0] * step, arrows[e.key][1] * step);
+      changed(true);
+    }
+  });
+  window.addEventListener('keyup', e => {
+    if (e.code === 'Space') { spaceDown = false; cv.style.cursor = tool === 'select' ? 'default' : 'crosshair'; }
+  });
+
+  function removeEl(id) {
+    pushUndo();
+    state.elements = state.elements.filter(x => x.id !== id);
+    if (selectedId === id) selectedId = null;
+    changed(true);
+  }
+  function duplicate() {
+    const el = state.elements.find(x => x.id === selectedId);
+    if (!el) return;
+    pushUndo();
+    const c = JSON.parse(JSON.stringify(el));
+    c.id = state.nextId++;
+    c.name = el.name + '_kopie';
+    moveEl(c, JSON.parse(JSON.stringify(c)), 15 / view.zoom, 15 / view.zoom);
+    state.elements.push(c);
+    selectedId = c.id;
+    changed(true);
+  }
+
+  // ---------- Property-Liste ----------
+  const FIELDS = {
+    rect:    [['cx', 'Mitte X', 'x'], ['cy', 'Mitte Y', 'y'], ['w', 'Breite', 'lx'], ['d', 'Tiefe', 'ly'], ['a', 'Winkel °', 'deg']],
+    circle:  [['cx', 'Mitte X', 'x'], ['cy', 'Mitte Y', 'y'], ['r', 'Radius', 'lx'], ['__dia', 'Durchmesser', 'lx']],
+    ellipse: [['cx', 'Mitte X', 'x'], ['cy', 'Mitte Y', 'y'], ['rx', 'Radius X', 'lx'], ['ry', 'Radius Y', 'ly'], ['a', 'Winkel °', 'deg']],
+  };
+  function getField(el, key) { return key === '__dia' ? el.r * 2 : el[key]; }
+  function setField(el, key, v) { if (key === '__dia') el.r = v / 2; else el[key] = v; }
+  const polyText = el => el.pts.map(q => `${fmt(conv.x(q.x), 2)}; ${fmt(conv.y(q.y), 2)}`).join('\n');
+
+  function renderList() {
+    listEl.innerHTML = '';
+    $('listEmpty').style.display = state.elements.length ? 'none' : '';
+    $('elCount').textContent = state.elements.length ? `(${state.elements.length})` : '';
+    const unit = pxPerCmX() ? 'cm' : 'px';
+    for (const el of state.elements) {
+      const card = document.createElement('div');
+      card.className = 'el' + (el.id === selectedId ? ' sel' : '');
+      card.dataset.id = el.id;
+      card.innerHTML = `
+        <div class="head">
+          <span class="type" title="${TYPE_NAME[el.type]}">${ICON[el.type]}</span>
+          <input data-k="name" value="${escapeHtml(el.name)}" title="Name">
+          <select data-k="op" title="Addieren oder Abziehen">
+            <option value="add"${el.op === 'add' ? ' selected' : ''}>+ add</option>
+            <option value="sub"${el.op === 'sub' ? ' selected' : ''}>− cut</option>
+          </select>
+          <button data-act="del" title="Löschen">✕</button>
+        </div>
+        <div class="fields"></div>`;
+      const fields = card.querySelector('.fields');
+      if (el.type === 'polygon') {
+        fields.innerHTML = `<label>Punkte<br><span class="muted">x; y (${unit})</span></label><textarea data-k="pts" rows="${Math.min(8, el.pts.length)}"></textarea>`;
+        fields.querySelector('textarea').value = polyText(el);
+      } else {
+        for (const [key, lbl, kind] of FIELDS[el.type]) {
+          const u = kind === 'deg' ? '' : ` (${unit})`;
+          fields.insertAdjacentHTML('beforeend',
+            `<label>${lbl}${u}</label><input type="number" step="any" data-f="${key}" data-kind="${kind}" value="${fmt(conv[kind](getField(el, key)), 2)}">`);
+        }
+      }
+      fields.insertAdjacentHTML('beforeend', `<label>Höhe</label><input data-k="height" value="${escapeHtml(el.height)}" title="OpenSCAD-Ausdruck, z.B. h, h/2, 5">`);
+      listEl.appendChild(card);
+    }
+  }
+  // Werte während des Ziehens aktualisieren, ohne die Liste neu aufzubauen
+  function renderListLive() {
+    const el = drag && drag.el;
+    if (!el) return;
+    const card = listEl.querySelector(`[data-id="${el.id}"]`);
+    if (!card) { renderList(); return; }
+    card.querySelectorAll('[data-f]').forEach(inp => {
+      inp.value = fmt(conv[inp.dataset.kind](getField(el, inp.dataset.f)), 2);
+    });
+    const ta = card.querySelector('[data-k="pts"]');
+    if (ta) ta.value = polyText(el);
+  }
+  function scrollToSel() {
+    const c = listEl.querySelector('.el.sel');
+    if (c) c.scrollIntoView({ block: 'nearest' });
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  }
+
+  listEl.addEventListener('mousedown', e => {
+    const card = e.target.closest('.el');
+    if (!card) return;
+    const id = +card.dataset.id;
+    if (selectedId !== id) {
+      selectedId = id;
+      listEl.querySelectorAll('.el').forEach(c => c.classList.toggle('sel', +c.dataset.id === id));
+      draw();
+    }
+  });
+  listEl.addEventListener('click', e => {
+    const b = e.target.closest('[data-act="del"]');
+    if (b) removeEl(+b.closest('.el').dataset.id);
+  });
+  listEl.addEventListener('focusin', e => {
+    if (e.target.matches('input, textarea, select')) e.target.dataset.undo = '1';
+  });
+  listEl.addEventListener('input', e => applyField(e.target, false));
+  listEl.addEventListener('change', e => applyField(e.target, true));
+
+  function applyField(t, commit) {
+    const card = t.closest('.el');
+    if (!card) return;
+    const el = state.elements.find(x => x.id === +card.dataset.id);
+    if (!el) return;
+    if (t.dataset.undo === '1') { pushUndo(); t.dataset.undo = '0'; }
+    if (t.dataset.f) {
+      const v = parseFloat(t.value);
+      if (!isFinite(v)) return;
+      let px = inv[t.dataset.kind](v);
+      if (['w', 'd', 'r', 'rx', 'ry', '__dia'].includes(t.dataset.f)) px = Math.abs(px);
+      setField(el, t.dataset.f, px);
+      if (t.dataset.f === 'r' || t.dataset.f === '__dia') {
+        // Radius <-> Durchmesser synchron halten
+        card.querySelectorAll('[data-f]').forEach(inp => { if (inp !== t) inp.value = fmt(conv[inp.dataset.kind](getField(el, inp.dataset.f)), 2); });
+      }
+    } else if (t.dataset.k === 'pts') {
+      const pts = t.value.split('\n').map(line => line.split(/[;\t]|\s+/).filter(Boolean).map(s => parseFloat(s.replace(',', '.'))))
+        .filter(a => a.length >= 2 && a.every(isFinite))
+        .map(([x, y]) => ({ x: inv.x(x), y: inv.y(y) }));
+      if (pts.length >= 3) el.pts = pts;
+    } else if (t.dataset.k) {
+      el[t.dataset.k] = t.value;
+    }
+    draw();
+    if (commit) { t.dataset.undo = '1'; persist(); }
+  }
+
+  // ---------- Globale Einstellungen ----------
+  function syncGlobals() {
+    $('hVal').value = state.h;
+    $('fnVal').value = state.fn;
+    $('unit').value = state.unit;
+    $('hUnit').textContent = state.unit;
+    for (const k of ['scaleH', 'scaleV']) {
+      const l = state[k];
+      $(k + 'cm').value = l ? fmt(l.cm, 3) : '';
+      $(k + 'info').textContent = l ? `${fmt(Math.hypot(l.x2 - l.x1, l.y2 - l.y1), 1)} px` : '–';
+    }
+    const x = pxPerCmX(), y = pxPerCmY();
+    let note = '';
+    if (!x) note = '<span class="warn">Kein Maßstab gesetzt – Werte in Pixeln.</span>';
+    else {
+      note = `${fmt(x, 2)} px/cm horizontal · ${fmt(y, 2)} px/cm vertikal`;
+      if (!state.scaleV) note += '<br>(V übernimmt H)';
+      else if (!state.scaleH) note += '<br>(H übernimmt V)';
+    }
+    $('scaleNote').innerHTML = note;
+  }
+  for (const k of ['scaleH', 'scaleV']) {
+    $(k + 'cm').addEventListener('change', e => {
+      const v = parseFloat(e.target.value);
+      if (!state[k]) {
+        e.target.value = '';
+        alert(`Bitte zuerst mit dem Werkzeug ${k === 'scaleH' ? 'MaßstabH' : 'MaßstabV'} eine Linie ziehen.`);
+        return;
+      }
+      pushUndo();
+      if (v > 0) state[k].cm = v; else state[k] = null;
+      changed(true);
+    });
+  }
+  $('hVal').addEventListener('change', e => { state.h = e.target.value.trim() || '10'; persist(); });
+  $('fnVal').addEventListener('change', e => { state.fn = Math.max(3, parseInt(e.target.value) || 96); persist(); });
+  $('unit').addEventListener('change', e => { state.unit = e.target.value; $('hUnit').textContent = state.unit; persist(); });
+
+  function changed(list) {
+    syncGlobals();
+    if (list) renderList();
+    draw();
+    status();
+    persist();
+  }
+
+  // ---------- OpenSCAD-Export ----------
+  function scad() {
+    const scaled = !!pxPerCmX();
+    const f = scaled ? (state.unit === 'mm' ? 10 : 1) : 1;
+    const unit = scaled ? state.unit : 'px';
+    const n = v => fmt(v * f, 3);
+    const X = v => n(conv.x(v)), Y = v => n(conv.y(v)), LX = v => n(conv.lx(v)), LY = v => n(conv.ly(v));
+    const shape = el => {
+      const rot = el.a ? `rotate(${fmt(-el.a, 3)}) ` : '';
+      switch (el.type) {
+        case 'rect': return `translate([${X(el.cx)}, ${Y(el.cy)}]) ${rot}square([${LX(el.w)}, ${LY(el.d)}], center = true);`;
+        case 'circle': return `translate([${X(el.cx)}, ${Y(el.cy)}]) circle(r = ${LX(el.r)});`;
+        case 'ellipse': return `translate([${X(el.cx)}, ${Y(el.cy)}]) ${rot}scale([${LX(el.rx)}, ${LY(el.ry)}]) circle(r = 1);`;
+        case 'polygon': return `polygon([${el.pts.map(q => `[${X(q.x)}, ${Y(q.y)}]`).join(', ')}]);`;
+      }
+    };
+    const hExpr = el => (el.height || 'h').trim() || 'h';
+    const ident = s => s.replace(/[^\w]/g, '_');
+    const adds = state.elements.filter(e => e.op !== 'sub');
+    const subs = state.elements.filter(e => e.op === 'sub');
+
+    const lines = [];
+    lines.push('// erzeugt mit cut.html');
+    lines.push(`// Einheit: ${unit}${scaled ? '' : '  (ACHTUNG: kein Maßstab gesetzt)'}`);
+    lines.push('');
+    lines.push(`h = ${state.h};   // Höhe`);
+    lines.push(`$fn = ${state.fn};`);
+    lines.push('');
+    for (const el of state.elements) {
+      lines.push(`module ${ident(el.name)}() { ${shape(el)} }`);
+    }
+    lines.push('');
+    const addLine = el => `linear_extrude(height = ${hExpr(el)}) ${ident(el.name)}();`;
+    const subLine = el => `  translate([0, 0, -0.01]) linear_extrude(height = ${hExpr(el)} + 0.02) ${ident(el.name)}();`;
+    if (subs.length) {
+      lines.push('difference() {');
+      lines.push('  union() {');
+      adds.forEach(el => lines.push('    ' + addLine(el)));
+      lines.push('  }');
+      subs.forEach(el => lines.push(subLine(el)));
+      lines.push('}');
+    } else {
+      lines.push('union() {');
+      adds.forEach(el => lines.push('  ' + addLine(el)));
+      lines.push('}');
+    }
+    return lines.join('\n') + '\n';
+  }
+  function checkNames() {
+    const seen = new Set(), dup = [];
+    for (const el of state.elements) {
+      const id = el.name.replace(/[^\w]/g, '_');
+      if (!/^[A-Za-z_]/.test(id)) el.name = '_' + el.name;
+      if (seen.has(id)) dup.push(el.name);
+      seen.add(id);
+    }
+    return dup;
+  }
+
+  $('btnExport').onclick = () => {
+    const dup = checkNames();
+    if (dup.length) { alert('Doppelte Namen: ' + dup.join(', ') + '\nBitte eindeutig benennen.'); return; }
+    renderList();
+    $('code').value = scad();
+    $('dlg').showModal();
+  };
+  $('btnClose').onclick = () => $('dlg').close();
+  $('btnCopy').onclick = async () => {
+    try { await navigator.clipboard.writeText($('code').value); $('btnCopy').textContent = '✓ Kopiert'; }
+    catch { $('code').select(); document.execCommand('copy'); $('btnCopy').textContent = '✓ Kopiert'; }
+    setTimeout(() => $('btnCopy').textContent = '📋 Kopieren', 1500);
+  };
+  $('btnDownload').onclick = () => download('cut.scad', $('code').value, 'text/plain');
+
+  function download(name, text, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type }));
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  // ---------- Buttons / Datei ----------
+  document.querySelectorAll('#toolbar [data-tool]').forEach(b => b.onclick = () => setTool(b.dataset.tool));
+  $('btnOpen').onclick = () => $('fileImg').click();
+  $('fileImg').onchange = e => { loadFile(e.target.files[0]); e.target.value = ''; };
+  $('btnFit').onclick = fitView;
+  $('btnUndo').onclick = undo;
+  $('btnSave').onclick = () => download('cut-projekt.json', JSON.stringify(state), 'application/json');
+  $('btnLoad').onclick = () => $('fileProj').click();
+  $('fileProj').onchange = e => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    file.text().then(t => {
+      try { pushUndo(); loadProject(JSON.parse(t)); }
+      catch (err) { alert('Projekt konnte nicht gelesen werden: ' + err.message); }
+    });
+  };
+
+  // Drag & Drop
+  let dragDepth = 0;
+  stage.addEventListener('dragenter', e => { e.preventDefault(); dragDepth++; stage.classList.add('drop'); });
+  stage.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; stage.classList.remove('drop'); } });
+  stage.addEventListener('dragover', e => e.preventDefault());
+  stage.addEventListener('drop', e => {
+    e.preventDefault();
+    dragDepth = 0;
+    stage.classList.remove('drop');
+    const f = [...e.dataTransfer.files].find(f => f.type.startsWith('image/'));
+    if (f) loadFile(f);
+  });
+  window.addEventListener('paste', e => {
+    if (/INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+    if (item) loadFile(item.getAsFile());
+  });
+
+  // ---------- Start ----------
+  new ResizeObserver(resize).observe(stage);
+  setTool('select');
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(STORE)); } catch (e) {}
+  if (saved) loadProject(saved);
+  else changed(true);
+})();
+</script>
+</body>
+</html>
